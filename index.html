@@ -2,152 +2,178 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>学習記録アプリ</title>
-  <link href="https://fonts.googleapis.com/css2?family=Kosugi+Maru&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>計算スキルアップシート</title>
   <style>
     body {
-      font-family: 'Kosugi Maru', sans-serif;
-      background: #fff8f0;
+      font-family: 'Arial', sans-serif;
+      background-color: #f0f8ff;
       color: #333;
-      padding: 20px;
-      max-width: 1000px;
-      margin: auto;
+      text-align: center;
     }
     h1 {
-      text-align: center;
-      color: #ff6f61;
-      font-size: 2em;
+      background: linear-gradient(90deg, #00c6ff, #0072ff);
+      color: white;
+      padding: 1rem;
+      border-radius: 1rem;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
     }
-    .tabs {
-      display: flex;
-      justify-content: center;
-      margin-bottom: 20px;
-    }
-    .tab {
-      padding: 10px 20px;
-      background: #ffe4d1;
-      border-radius: 10px 10px 0 0;
-      cursor: pointer;
-      margin: 0 5px;
-    }
-    .tab.active {
-      background: #ffb347;
-      font-weight: bold;
-    }
-    .tab-content {
-      display: none;
-      background: white;
-      padding: 20px;
-      border: 2px solid #ffd8b1;
-      border-radius: 0 10px 10px 10px;
-    }
-    .tab-content.active {
-      display: block;
-    }
-    table {
-      border-collapse: collapse;
-      margin-top: 10px;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      width: 50px;
-      height: 40px;
-      text-align: center;
-    }
-    input[type="number"] {
-      width: 40px;
-      font-size: 16px;
-      text-align: center;
-    }
-    .controls {
-      margin-top: 10px;
-    }
-    .result {
-      margin-top: 10px;
-      font-size: 1.1em;
-      color: #444;
-    }
-    .start-btn, .check-btn {
-      padding: 10px 20px;
-      background-color: #ffb347;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      margin-right: 10px;
-      cursor: pointer;
-    }
-    canvas {
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 4px;
       margin-top: 20px;
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .grid input {
+      width: 100%;
+      padding: 8px;
+      text-align: center;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+    }
+    .grid input.correct {
+      background-color: #c8f7c5;
+    }
+    .grid input.incorrect {
+      background-color: #f8d7da;
+      color: red;
     }
     #stampArea {
-      margin-top: 20px;
-      font-size: 36px;
-      text-align: center;
+      font-size: 2rem;
+      margin: 1rem;
     }
-    .stamp-badge {
-      display: inline-block;
-      padding: 15px 30px;
-      background: #fff3cd;
-      border: 3px solid #ffa502;
-      border-radius: 30px;
-      font-size: 32px;
-      font-weight: bold;
-      color: #d35400;
-      box-shadow: 0 0 10px rgba(255, 165, 0, 0.6);
-      margin-top: 10px;
-      animation: pop 0.5s ease;
-    }
-    @keyframes pop {
-      0% { transform: scale(0.6); opacity: 0; }
-      100% { transform: scale(1); opacity: 1; }
+    .badge {
+      font-size: 3rem;
+      margin: 1rem;
     }
   </style>
 </head>
 <body>
-  <h1>📘 計算学習アプリ（100マス × 記録）</h1>
-
-  <div class="tabs">
-    <div class="tab active" onclick="switchTab('practice')">🧠 100マスチャレンジ</div>
-    <div class="tab" onclick="switchTab('record')">📊 記録とグラフ</div>
+  <h1>計算スキルアップシート</h1>
+  <div>
+    <label>名前: <input type="text" id="userName" /></label>
+    <button onclick="startChallenge()">スタート</button>
   </div>
-
-  <div id="practice" class="tab-content active">
-    <div class="controls">
-      名前: <input type="text" id="userName" placeholder="なまえ" />
-      <button class="start-btn" onclick="startPractice()">スタート</button>
-      <button class="check-btn" onclick="checkAnswers()">採点する</button>
-      <span id="timer">⏱️ 0:00</span>
-    </div>
-    <div id="gridContainer"></div>
-    <div class="result" id="resultArea"></div>
-    <div id="stampArea"></div>
-  </div>
-
-  <div id="record" class="tab-content">
-    <canvas id="scoreChart" width="800" height="300"></canvas>
-    <div id="recordList"></div>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <div id="timer">⏱️ 0:00</div>
+  <div class="grid" id="quizGrid"></div>
+  <button onclick="grade()">採点する</button>
+  <div id="score"></div>
+  <div id="stampArea"></div>
+  <div id="history"></div>
   <script>
-    let startTime = null;
+    let startTime;
     let timerInterval;
-    let chart;
-    let bestScore = 0;
-    let bestTime = Infinity;
+    let vertical = [], horizontal = [];
 
-    function switchTab(tabId) {
-      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-      document.querySelector(`.tab[onclick*="${tabId}"]`).classList.add('active');
-      document.getElementById(tabId).classList.add('active');
-      if (tabId === 'record') renderChart();
+    function startChallenge() {
+      const grid = document.getElementById('quizGrid');
+      grid.innerHTML = '';
+      document.getElementById('score').innerText = '';
+      document.getElementById('stampArea').innerHTML = '';
+
+      vertical = shuffle([...Array(10).keys()].map(n => n + 1));
+      horizontal = shuffle([...Array(10).keys()].map(n => n + 1));
+
+      for (let r = 0; r < 10; r++) {
+        for (let c = 0; c < 10; c++) {
+          const input = document.createElement('input');
+          input.type = 'number';
+          input.dataset.row = r;
+          input.dataset.col = c;
+          grid.appendChild(input);
+        }
+      }
+
+      startTime = Date.now();
+      clearInterval(timerInterval);
+      timerInterval = setInterval(updateTimer, 1000);
+    }
+
+    function updateTimer() {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const min = Math.floor(elapsed / 60);
+      const sec = elapsed % 60;
+      document.getElementById('timer').innerText = `⏱️ ${min}:${sec.toString().padStart(2, '0')}`;
+    }
+
+    function grade() {
+      const inputs = document.querySelectorAll('#quizGrid input');
+      let correct = 0;
+      let total = 0;
+      let hasBlank = false;
+
+      inputs.forEach(input => {
+        const val = input.value;
+        if (val === '') {
+          hasBlank = true;
+          input.classList.remove('correct', 'incorrect');
+          return;
+        }
+        const r = parseInt(input.dataset.row);
+        const c = parseInt(input.dataset.col);
+        const expected = vertical[r] * horizontal[c];
+        if (parseInt(val) === expected) {
+          correct++;
+          input.classList.add('correct');
+          input.classList.remove('incorrect');
+        } else {
+          input.classList.add('incorrect');
+          input.classList.remove('correct');
+        }
+        total++;
+      });
+
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const min = Math.floor(elapsed / 60);
+      const sec = elapsed % 60;
+      document.getElementById('timer').innerText = `⏱️ ${min}:${sec.toString().padStart(2, '0')}`;
+
+      if (!hasBlank) {
+        document.getElementById('score').innerText = `${correct}問正解 / 所要時間: ${min}:${sec.toString().padStart(2, '0')}`;
+        if (correct === 100) {
+          showStamp(elapsed);
+        }
+        saveHistory(correct, elapsed);
+      } else {
+        document.getElementById('score').innerText = '未記入の欄があります。記録されません。';
+      }
+    }
+
+    function saveHistory(correct, time) {
+      const name = document.getElementById('userName').value || '名無し';
+      const date = new Date().toLocaleString();
+      const record = { name, correct, time, date };
+      const records = JSON.parse(localStorage.getItem('history') || '[]');
+      records.push(record);
+      localStorage.setItem('history', JSON.stringify(records));
+      renderHistory();
+    }
+
+    function renderHistory() {
+      const records = JSON.parse(localStorage.getItem('history') || '[]');
+      const html = records.map(r => `<div>${r.name}：${r.correct}問正解（${formatTime(r.time)}） - ${r.date}</div>`).join('');
+      document.getElementById('history').innerHTML = '<h3>記録履歴</h3>' + html;
     }
 
     function formatTime(sec) {
-      const minutes = Math.floor(sec / 60);
-      const seconds = sec % 60;
-      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return `${m}:${s.toString().padStart(2, '0')}`;
+    }
+
+    function showStamp(time) {
+      const stampArea = document.getElementById('stampArea');
+      let stamp = '';
+      if (time <= 90) stamp = '🕊️ <strong>鳳凰スタンプ</strong>';
+      else if (time <= 120) stamp = '🐉 <strong>龍スタンプ</strong>';
+      else if (time <= 180) stamp = '🐯 <strong>トラスタンプ</strong>';
+      else if (time <= 240) stamp = '🐶 <strong>犬スタンプ</strong>';
+      else if (time <= 300) stamp = '🐟 <strong>魚スタンプ</strong>';
+      if (stamp) stampArea.innerHTML = `<div class="badge">${stamp}</div>`;
     }
 
     function shuffle(array) {
@@ -158,159 +184,7 @@
       return array;
     }
 
-    function startPractice() {
-      const container = document.getElementById("gridContainer");
-      container.innerHTML = "";
-      document.getElementById("stampArea").innerHTML = "";
-
-      const table = document.createElement("table");
-      const rowHeaders = shuffle([...Array(10).keys()].map(i => i + 1));
-      const colHeaders = shuffle([...Array(10).keys()].map(i => i + 1));
-
-      const thead = document.createElement("thead");
-      const headerRow = document.createElement("tr");
-      headerRow.innerHTML = "<th>×</th>";
-      colHeaders.forEach(j => {
-        const th = document.createElement("th");
-        th.textContent = j;
-        headerRow.appendChild(th);
-      });
-      thead.appendChild(headerRow);
-      table.appendChild(thead);
-
-      const tbody = document.createElement("tbody");
-      for (let i = 0; i < 10; i++) {
-        const row = document.createElement("tr");
-        const th = document.createElement("th");
-        th.textContent = rowHeaders[i];
-        row.appendChild(th);
-        for (let j = 0; j < 10; j++) {
-          const td = document.createElement("td");
-          const input = document.createElement("input");
-          input.type = "number";
-          input.dataset.x = colHeaders[j];
-          input.dataset.y = rowHeaders[i];
-          input.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") {
-              const inputs = Array.from(document.querySelectorAll("#gridContainer input"));
-              const idx = inputs.indexOf(e.target);
-              if (idx >= 0 && idx < inputs.length - 1) {
-                inputs[idx + 1].focus();
-              }
-            }
-          });
-          td.appendChild(input);
-          row.appendChild(td);
-        }
-        tbody.appendChild(row);
-      }
-      table.appendChild(tbody);
-      container.appendChild(table);
-
-      startTime = Date.now();
-      clearInterval(timerInterval);
-      timerInterval = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - startTime) / 1000);
-        document.getElementById("timer").textContent = `⏱️ ${formatTime(elapsed)}`;
-      }, 500);
-
-      document.getElementById("resultArea").textContent = "";
-    }
-
-    function getStampByTime(sec) {
-      if (sec <= 90) return "🕊️ 鳳凰スタンプ";
-      if (sec <= 120) return "🐉 龍スタンプ";
-      if (sec <= 180) return "🐯 トラスタンプ";
-      if (sec <= 240) return "🐶 犬スタンプ";
-      if (sec <= 300) return "🐟 魚スタンプ";
-      return "";
-    }
-
-    function checkAnswers() {
-      clearInterval(timerInterval);
-      const inputs = document.querySelectorAll("#gridContainer input");
-      let correct = 0;
-      let blank = 0;
-      let wrong = 0;
-
-      inputs.forEach(input => {
-        const x = parseInt(input.dataset.x);
-        const y = parseInt(input.dataset.y);
-        const correctAnswer = x * y;
-        const value = input.value.trim();
-        if (value === "") {
-          blank++;
-        } else if (parseInt(value) === correctAnswer) {
-          correct++;
-        } else {
-          wrong++;
-        }
-      });
-
-      const totalTime = Math.floor((Date.now() - startTime) / 1000);
-      const userName = document.getElementById("userName").value || "ななし";
-      const now = new Date().toLocaleString();
-
-      const record = { name: userName, correct, wrong, blank, time: totalTime, date: now };
-
-      let resultMsg = `✅ 正解: ${correct}点 ／ ❌ ミス: ${wrong} ／ ⬜ 未記入: ${blank} ／ ⏱️ 時間: ${formatTime(totalTime)}`;
-
-      if (correct === 100 && wrong === 0 && blank === 0) {
-        const records = JSON.parse(localStorage.getItem("mathRecords") || "[]");
-        records.push(record);
-        localStorage.setItem("mathRecords", JSON.stringify(records));
-
-        if (correct > bestScore) {
-          bestScore = correct;
-          resultMsg += " 🎉 ベストスコア更新！";
-        }
-        if (totalTime < bestTime) {
-          bestTime = totalTime;
-          resultMsg += ` ⏱️ 最速タイム更新！(${formatTime(totalTime)})`;
-        }
-
-        const stamp = getStampByTime(totalTime);
-        if (stamp) {
-          document.getElementById("stampArea").innerHTML = `<div class='stamp-badge'>🎁 ごほうび: ${stamp}</div>`;
-        }
-      } else {
-        resultMsg += "（全問正解時のみ記録・スタンプ対象です）";
-      }
-
-      document.getElementById("resultArea").textContent = resultMsg;
-    }
-
-    function renderChart() {
-      const ctx = document.getElementById("scoreChart").getContext("2d");
-      const records = JSON.parse(localStorage.getItem("mathRecords") || "[]");
-      const labels = records.map(r => r.date);
-      const scores = records.map(r => r.correct);
-      const times = records.map(r => r.time);
-
-      if (chart) chart.destroy();
-      chart = new Chart(ctx, {
-        type: "line",
-        data: {
-          labels: labels,
-          datasets: [
-            {
-              label: "得点",
-              data: scores,
-              borderColor: "#f77f00",
-              backgroundColor: "rgba(255,165,0,0.2)",
-              tension: 0.2
-            },
-            {
-              label: "時間(秒)",
-              data: times,
-              borderColor: "#0096c7",
-              backgroundColor: "rgba(0,150,199,0.2)",
-              tension: 0.2
-            }
-          ]
-        }
-      });
-    }
+    window.onload = renderHistory;
   </script>
 </body>
 </html>
